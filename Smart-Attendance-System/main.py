@@ -51,20 +51,18 @@ def detect_emotions(frame):
 
 video_capture = cv2.VideoCapture(0)
 
-jobs_image = face_recognition.load_image_file("photos/jobs.jpg")
-jobs_encoding = face_recognition.face_encodings(jobs_image)[0]
+known_face_encoding = []
+known_faces_names = []
 
-ratan_tata_image = face_recognition.load_image_file("photos/tata.jpg")
-ratan_tata_encoding = face_recognition.face_encodings(ratan_tata_image)[0]
+faces_directory = "face_images/"
 
-sadmona_image = face_recognition.load_image_file("photos/sadmona.jpg")
-sadmona_encoding = face_recognition.face_encodings(sadmona_image)[0]
-
-tesla_image = face_recognition.load_image_file("photos/tesla.jpg")
-tesla_encoding = face_recognition.face_encodings(tesla_image)[0]
-
-known_face_encoding = [jobs_encoding, ratan_tata_encoding, sadmona_encoding, tesla_encoding]
-known_faces_names = ["jobs", "Kushagra Gupta", "sadmona", "Falguni Dixit"]
+for filename in os.listdir(faces_directory):
+    if filename.endswith(".jpg") or filename.endswith(".png"):
+        image_path = os.path.join(faces_directory, filename)
+        face_image = face_recognition.load_image_file(image_path)
+        face_encoding = face_recognition.face_encodings(face_image)[0]
+        known_face_encoding.append(face_encoding)
+        known_faces_names.append(filename.split(".")[0])
 
 students = known_faces_names.copy()
 
@@ -141,3 +139,4 @@ while True:
 video_capture.release()
 f.close()
 cv2.destroyAllWindows()
+
