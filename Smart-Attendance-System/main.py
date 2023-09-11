@@ -1,20 +1,19 @@
-import face_recognition
-import cv2
-import numpy as np
-import csv
-import os
-from datetime import datetime
-from keras.models import load_model
-import matplotlib.pyplot as plt
+import face_recognition  # Importing face_recognition library
+import cv2  # Importing OpenCV library
+import numpy as np  # Importing NumPy library for numerical operations
+import csv  # Importing CSV module for working with CSV files
+import os  # Importing OS module for interacting with the operating system
+from datetime import datetime  # Importing datetime module for handling dates and times
+from keras.models import load_model  # Importing load_model function from Keras for loading a deep learning model
+import matplotlib.pyplot as plt  # Importing matplotlib for plotting
 
-emotion_detection_model = load_model('pretrained_emotion_detection_model.h5')
-emotion_detection_model.save('emotion_detection.h5')
+emotion_detection_model = load_model('pretrained_emotion_detection_model.h5')  # Load emotion detection model
+emotion_detection_model.save('emotion_detection.h5')  # Save the model with a different name
 
-age_net = cv2.dnn.readNetFromCaffe('deploy_age.prototxt', 'age_net.caffemodel')
-gender_net = cv2.dnn.readNetFromCaffe('deploy_gender.prototxt', 'gender_net.caffemodel')
+age_net = cv2.dnn.readNetFromCaffe('deploy_age.prototxt', 'age_net.caffemodel')  # Load age detection model
+gender_net = cv2.dnn.readNetFromCaffe('deploy_gender.prototxt', 'gender_net.caffemodel')  # Load gender detection model
 
-cap = cv2.VideoCapture(0)
-
+cap = cv2.VideoCapture(0)  # Initialize video capture
 
 def detect_emotions(frame):
     # Load the pre-trained face detection classifier
@@ -48,95 +47,93 @@ def detect_emotions(frame):
 
     return frame
 
+video_capture = cv2.VideoCapture(0)  # Initialize video capture
 
-video_capture = cv2.VideoCapture(0)
+known_face_encoding = []  # Initialize list for storing face encodings
+known_faces_names = []  # Initialize list for storing face names
 
-known_face_encoding = []
-known_faces_names = []
+faces_directory = "face_images/"  # Define directory for face images
 
-faces_directory = "face_images/"
+for filename in os.listdir(faces_directory):  # Loop through files in the faces directory
+    if filename.endswith(".jpg") or filename.endswith(".png"):  # Check if the file is an image
+        image_path = os.path.join(faces_directory, filename)  # Get full image path
+        face_image = face_recognition.load_image_file(image_path)  # Load face image
+        face_encoding = face_recognition.face_encodings(face_image)[0]  # Get face encoding
+        known_face_encoding.append(face_encoding)  # Add face encoding to list
+        known_faces_names.append(filename.split(".")[0])  # Add face name to list
 
-for filename in os.listdir(faces_directory):
-    if filename.endswith(".jpg") or filename.endswith(".png"):
-        image_path = os.path.join(faces_directory, filename)
-        face_image = face_recognition.load_image_file(image_path)
-        face_encoding = face_recognition.face_encodings(face_image)[0]
-        known_face_encoding.append(face_encoding)
-        known_faces_names.append(filename.split(".")[0])
+students = known_faces_names.copy()  # Create a copy of known face names
 
-students = known_faces_names.copy()
+face_locations = []  # Initialize list for face locations
+face_encodings = []  # Initialize list for face encodings
+face_names = []  # Initialize list for face names
+s = True  # Initialize s as True (used in face recognition loop)
 
-face_locations = []
-face_encodings = []
-face_names = []
-s = True
+now = datetime.now()  # Get current date and time
+current_date = now.strftime("%Y-%m-%d")  # Format date as string
 
-now = datetime.now()
-current_date = now.strftime("%Y-%m-%d")
+f = open(current_date + '.csv', 'w+', newline='')  # Open CSV file for writing
+lnwriter = csv.writer(f)  # Initialize CSV writer
 
-f = open(current_date + '.csv', 'w+', newline='')
-lnwriter = csv.writer(f)
+while True:  # Start infinite loop for video capture
+    _, frame = video_capture.read()  # Read a frame from the video capture
+    small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)  # Resize frame for faster processing
+    rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)  # Convert frame to RGB
 
-while True:
-    _, frame = video_capture.read()
-    small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-    rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+    if s:  # If s is True
+        face_locations = face_recognition.face_locations(rgb_small_frame)  # Get face locations
+        face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)  # Get face encodings
+        face_names = []  # Reset face names list
 
-    if s:
-        face_locations = face_recognition.face_locations(rgb_small_frame)
-        face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
-        face_names = []
+    for face_encoding in face_encodings:  # Loop through face encodings
+        matches = face_recognition.compare_faces(known_face_encoding, face_encoding)  # Compare face encodings
+        name = ""  # Initialize name as empty string
+        face_distance = face_recognition.face_distance(known_face_encoding, face_encoding)  # Calculate face distance
+        best_match_index = np.argmin(face_distance)  # Get index of best match
+        if matches[best_match_index]:  # If there is a match
+            name = known_faces_names[best_match_index]  # Get the name
 
-    for face_encoding in face_encodings:
-        matches = face_recognition.compare_faces(known_face_encoding, face_encoding)
-        name = ""
-        face_distance = face_recognition.face_distance(known_face_encoding, face_encoding)
-        best_match_index = np.argmin(face_distance)
-        if matches[best_match_index]:
-            name = known_faces_names[best_match_index]
+        if name and name not in face_names:  # If name is not empty and not in face names list
+            face_names.append(name)  # Add name to face names list
 
-        if name and name not in face_names:
-            face_names.append(name)
+        if name in students:  # If name is in students list
+            students.remove(name)  # Remove name from students list
+            print(students)  # Print updated students list
+            current_time = now.strftime("%H-%M-%S")  # Get current time
+            lnwriter.writerow([name, current_time])  # Write name and time to CSV file
 
-        if name in students:
-            students.remove(name)
-            print(students)
-            current_time = now.strftime("%H-%M-%S")
-            lnwriter.writerow([name, current_time])
-
-        if name in known_faces_names:
-            font = cv2.ACCESS_MASK
-            bottomLeftCornerOfText = (10, 100)
-            fontScale = 1.5
-            if name:
+        if name in known_faces_names:  # If name is in known face names list
+            font = cv2.ACCESS_MASK  # Set font
+            bottomLeftCornerOfText = (10, 100)  # Set position for text
+            fontScale = 1.5  # Set font scale
+            if name:  # If name is not empty
                 fontColor = (0, 255, 0)  # Green color if present
-            else:
+            else:  # If name is empty
                 fontColor = (0, 0, 255)  # Red color if absent
-            thickness = 6
-            lineType = 2
+            thickness = 6  # Set text thickness
+            lineType = 2  # Set line type
 
             cv2.putText(frame, name + ' Present', bottomLeftCornerOfText, font, fontScale, fontColor, thickness,
-                        lineType)
+                        lineType)  # Put text on frame
 
-    # Check posture
-    if len(face_locations) > 0:
-        top, right, bottom, left = face_locations[0]
-        x_diff = right - left
-        y_diff = bottom - top
-        aspect_ratio = x_diff / y_diff
-        if aspect_ratio > 1.9 or aspect_ratio < 1:
-            # Posture not straight
+    if len(face_locations) > 0:  # If there are face locations
+        top, right, bottom, left = face_locations[0]  # Get face coordinates
+        x_diff = right - left  # Calculate x difference
+        y_diff = bottom - top  # Calculate y difference
+        aspect_ratio = x_diff / y_diff  # Calculate aspect ratio
+        if aspect_ratio > 1.9 or aspect_ratio < 1:  # If aspect ratio is not within range
             cv2.putText(frame, name + " Please keep your posture straight!", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                        (0, 0, 255), 2)
+                        (0, 0, 255), 2)  # Put posture warning on frame
 
     # Emotion detection
     frame = detect_emotions(frame)
 
-    cv2.imshow("Advanced Attendance system ©Kushagra & Vaishnavi 2023", frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    cv2.imshow("Advanced Attendance system ©Kushagra & Vaishnavi 2023", frame)  # Display frame
+    if cv2.waitKey(1) & 0xFF == ord('q'):  # If 'q' is pressed, break out of loop
         break
 
-video_capture.release()
-f.close()
-cv2.destroyAllWindows()
+video_capture.release()  # Release video capture
+f.close()  # Close CSV file
+cv2.destroyAllWindows()  # Destroy all OpenCV windows
+
 
